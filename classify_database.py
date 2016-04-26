@@ -1,13 +1,17 @@
+import os
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-
+from pybrain.utilities import percentError
+from pylab import plot, hold, show
 from pybrain.datasets            import SequenceClassificationDataSet
 from pybrain.utilities           import percentError
 from pybrain.structure.modules   import LSTMLayer, SoftmaxLayer
-from pybrain.supervised          import RPropMinusTrainer
+from pybrain.supervised          import RPropMinusTrainer, BackpropTrainer
 from pybrain.tools.shortcuts     import buildNetwork
 from pybrain.datasets            import ClassificationDataSet, SequenceClassificationDataSet
+from pybrain.tools.xml.networkwriter import NetworkWriter
+from pybrain.tools.xml.networkreader import NetworkReader
 
 # Where our handwritten digits are located at
 handwritten_digits_database = './database/letter.data'
@@ -38,37 +42,45 @@ with open(handwritten_digits_database) as database:
         image = np.array(splitted[6:-1]).astype(np.uint8) # Converts to numpy array
 
         # Reshapes our images (to see how it looks like)
-        #reconstructed_image = np.reshape(reconstructed_image, (16, 8))
+        #reconstructed_image = np.reshape(image, (16, 8))
 
+        #print(chr(letter+97))
         #plt.imshow(reconstructed_image, cmap='Greys')
         #plt.show()
 
         # Feed data into our classifcation dataset
         ds.addSample(image, letter)
 
-print('Building our network...')
+print('Building our recurrent neural network...')
 # Split our data into 75% training and 25% test
-tstdata, trndata = ds.splitWithProportion(0.25)
+trndata, partdata = ds.splitWithProportion(0.75)
+tstdata, validata = partdata.splitWithProportion(0.5)
 
 # Converts 1 output to x binary outputs
 trndata._convertToOneOfMany()
 tstdata._convertToOneOfMany()
+validata._convertToOneOfMany()
 
 # Construct LSTM network
 rnn = buildNetwork(trndata.indim, 128, trndata.outdim, hiddenclass=LSTMLayer, outclass=SoftmaxLayer, recurrent=True)
 # Our training method
-trainer = RPropMinusTrainer(rnn, dataset=trndata, verbose=True)
+trainer = BackpropTrainer( rnn, dataset=trndata, verbose=True, momentum=0.9, learningrate=0.00001  )
 
-print('Training our dataset...')
-# Carry out the training
-trainer.trainEpochs(50)
-print ('Percent Error on Test dataset: ' , percentError( trainer.testOnClassData(dataset=tstdata), tstdata['class'] ))
+if os.path.isfile('ocr_model.xml'):
+    print('Existing network model found, loading model...')
+    rnn = NetworkReader.readFrom('ocr_model.xml')
+    print('Loaded model')
 
-# Save model
-NetworkWriter.writeToFile(rnn, 'handwritten_digits_model.xml')
+else:
+    print('Training our dataset...')
+    # Carry out the training
+    trainer.trainOnDataset(trndata, 50)
+    print('Total epochs: ' + str(trainer.totalepochs))
+
+    # Save model
+    NetworkWriter.writeToFile(rnn, 'ocr_model.xml')
+    print('Saved neural networl model')
 
 # Plot the first time series
-plot(trndata['input'][:, :], '-o')
-hold(True)
-plot(trndata['target'][:, 0])
-show()
+predict = rnn.activateOnDataset(tstdata).argmax(axis=1)
+print('Error: ' + str(percentError(predict, tstdata['class'])*100))
