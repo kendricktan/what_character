@@ -1,3 +1,4 @@
+import os
 import urllib2 
 import gzip
 import StringIO
@@ -8,6 +9,8 @@ letter_name_path = './database/letter.names'
 # Checks if folder exists
 if not os.path.exists('database'):
     os.makedirs('database')
+    print('Created database folder')
+    print('-----------------------')
 
 # Downloads our dataset
 print('Downloading letter.data.gz ...')
@@ -20,6 +23,7 @@ print('Decompressing and writing letter.data to file ...')
 with open(letter_data_path, 'w') as outfile:
     outfile.write(decompressed_letter_data.read())
 print('Successfully written letter.data in the database folder')
+print('-----------------------')
 
 # Downloads additional information about database
 print('Downloading letter.names')
