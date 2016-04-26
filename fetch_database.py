@@ -7,7 +7,7 @@ letter_name_path = './database/letter.names'
 
 # Checks if folder exists
 if not os.path.exists('database'):
-        os.makedirs('database')
+    os.makedirs('database')
 
 # Downloads our dataset
 print('Downloading letter.data.gz ...')
