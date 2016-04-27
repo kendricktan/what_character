@@ -2,24 +2,20 @@ import os
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-from pybrain.utilities import percentError
-from pylab import plot, hold, show
-from pybrain.datasets            import SequenceClassificationDataSet
-from pybrain.utilities           import percentError
-from pybrain.structure.modules   import LSTMLayer, SoftmaxLayer
-from pybrain.supervised          import RPropMinusTrainer, BackpropTrainer
-from pybrain.tools.shortcuts     import buildNetwork
-from pybrain.datasets            import ClassificationDataSet, SequenceClassificationDataSet
-from pybrain.tools.xml.networkwriter import NetworkWriter
-from pybrain.tools.xml.networkreader import NetworkReader
+import tensorflow as tf
+from tensorflow.models.rnn import rnn, rnn_cell
+from random import shuffle
 
 # Where our handwritten digits are located at
 handwritten_digits_database = './database/letter.data'
 
 # Our classifier
-ds = ClassificationDataSet(128, 1, nb_classes=26)
-
 print('Reading database...')
+
+# Our dataset
+class_list = []
+image_list = []
+
 # Opens database
 with open(handwritten_digits_database) as database:
     # Loops through each line
@@ -37,9 +33,17 @@ with open(handwritten_digits_database) as database:
         # 7. p_i_j: 0/1 -- value of pixel in row i, column j
 
         id = splitted[0]
-        letter = ord(splitted[1]) - 97 # Convert to interger
+        letter = ord(splitted[1]) - 97 # Convert to integer
         fold = splitted[5]
-        image = np.array(splitted[6:-1]).astype(np.uint8) # Converts to numpy array
+        image = splitted[6:-1] # Converts to numpy array
+
+        letter_ = np.zeros((26))
+        letter_[letter] = 1
+
+        class_list.append(letter_)
+        image_list.append(image)
+
+        # Append our data into our datasets
 
         # Reshapes our images (to see how it looks like)
         #reconstructed_image = np.reshape(image, (16, 8))
@@ -48,39 +52,52 @@ with open(handwritten_digits_database) as database:
         #plt.imshow(reconstructed_image, cmap='Greys')
         #plt.show()
 
-        # Feed data into our classifcation dataset
-        ds.addSample(image, letter)
+
+# Converts our dataset into numpy array 
+class_list = np.array(class_list).astype(np.uint8)
+image_list = np.array(image_list).astype(np.float32)
+
+# Constructs our dataset as a numpy array and uses 80% as training data
+index_ = int(len(class_list)*0.85)
+trnclass_list, partclass_list = class_list[:index_], class_list[index_:]
+trnimage_list, partimage_list = image_list[:index_], image_list[index_:]
+
+# Uses 1/3 of testing data as validation data
+index__ = int(len(partclass_list)*0.77)
+validateclass_list, tstclass_list = partclass_list[:index__], partclass_list[index__:] 
+validateimage_list, tstimage_list = partimage_list[:index__], partimage_list[index__:]
 
 print('Building our recurrent neural network...')
-# Split our data into 75% training and 25% test
-trndata, partdata = ds.splitWithProportion(0.75)
-tstdata, validata = partdata.splitWithProportion(0.5)
+# Simple softmax regression
+x = tf.placeholder(tf.float32, [None, 128])
+W = tf.Variable(tf.zeros([128, 26]))
+b = tf.Variable(tf.zeros([26]))
 
-# Converts 1 output to x binary outputs
-trndata._convertToOneOfMany()
-tstdata._convertToOneOfMany()
-validata._convertToOneOfMany()
+y = tf.nn.softmax(tf.matmul(x, W) + b)
+y_ = tf.placeholder(tf.float32, [None, 26])
+cross_entropy = -tf.reduce_sum(y_*tf.log(y))
+train_step = tf.train.GradientDescentOptimizer(0.01).minimize(cross_entropy)
 
-# Construct LSTM network
-rnn = buildNetwork(trndata.indim, 128, trndata.outdim, hiddenclass=LSTMLayer, outclass=SoftmaxLayer, recurrent=True)
-# Our training method
-trainer = BackpropTrainer( rnn, dataset=trndata, verbose=True, momentum=0.9, learningrate=0.00001  )
+init = tf.initialize_all_variables()
 
-if os.path.isfile('ocr_model.xml'):
-    print('Existing network model found, loading model...')
-    rnn = NetworkReader.readFrom('ocr_model.xml')
-    print('Loaded model')
+correct_prediction = tf.equal(tf.argmax(y, 1), tf.argmax(y_, 1))
+accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
-else:
-    print('Training our dataset...')
-    # Carry out the training
-    trainer.trainOnDataset(trndata, 50)
-    print('Total epochs: ' + str(trainer.totalepochs))
+sess = tf.Session()
+sess.run(init)
 
-    # Save model
-    NetworkWriter.writeToFile(rnn, 'ocr_model.xml')
-    print('Saved neural networl model')
+for i in range(1000):
+    # Shuffle data
+    perm = np.arange(index_)
+    np.random.shuffle(perm)
 
-# Plot the first time series
-predict = rnn.activateOnDataset(tstdata).argmax(axis=1)
-print('Error: ' + str(percentError(predict, tstdata['class'])*100))
+    temp_trnclass_list = trnclass_list[perm][:100]
+    temp_trnimage_list = trnimage_list[perm][:100]
+
+    sess.run(train_step, feed_dict={x: temp_trnimage_list, y_: temp_trnclass_list})
+    tst_result = ('[Test database] Accuracy: %5.2f%%' % (100*sess.run(accuracy, feed_dict={x: tstimage_list, y_: tstclass_list})))
+    validate_result = ('[Validation database] Accuracy: %5.2f%%' % (100*sess.run(accuracy, feed_dict={x: validateimage_list, y_: validateclass_list})))
+
+
+    print(tst_result + '\t' + validate_result)
+
