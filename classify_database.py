@@ -10,7 +10,7 @@ from random import shuffle
 # Where our handwritten digits are located at
 GLOBAL_STEPS = 1000
 handwritten_digits_database = './database/letter.data'
-trained_session_location = './session/sess_model.ckpt-' + str(GLOBAL_STEPS)
+trained_session_location = './session/sess_model.ckpt' 
 
 if not os.path.exists('session'):
     os.makedirs('session')
@@ -100,7 +100,7 @@ saver = tf.train.Saver()
 
 # If is is a model we load it
 try:
-    saver.restore(sess, trained_session_location)
+    saver.restore(sess, trained_session_location + '-' + str(GLOBAL_STEPS))
     print('Existing session found, loaded session')
 
 # If there isn't we train our data and save it
