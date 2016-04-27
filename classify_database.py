@@ -8,7 +8,14 @@ from random import randint
 from random import shuffle
 
 # Where our handwritten digits are located at
+GLOBAL_STEPS = 1000
 handwritten_digits_database = './database/letter.data'
+trained_session_location = './session/sess_model.ckpt-' + str(GLOBAL_STEPS)
+
+if not os.path.exists('session'):
+    os.makedirs('session')
+    print('Created session folder')
+    print('-----------------------')
 
 # Our classifier
 print('Reading database...')
@@ -68,7 +75,7 @@ index__ = int(len(partclass_list)*0.77)
 validateclass_list, tstclass_list = partclass_list[:index__], partclass_list[index__:] 
 validateimage_list, tstimage_list = partimage_list[:index__], partimage_list[index__:]
 
-print('Building our recurrent neural network...')
+print('Building our neural network...')
 # Simple softmax regression
 x = tf.placeholder(tf.float32, [None, 128])
 W = tf.Variable(tf.zeros([128, 26]))
@@ -84,27 +91,40 @@ init = tf.initialize_all_variables()
 correct_prediction = tf.equal(tf.argmax(y, 1), tf.argmax(y_, 1))
 accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
+# Current session
 sess = tf.Session()
 sess.run(init)
 
-# Train our data
-for i in range(1000):
-    # Shuffle data
-    perm = np.arange(index_)
-    np.random.shuffle(perm)
+# Variable to save our session
+saver = tf.train.Saver()
 
-    temp_trnclass_list = trnclass_list[perm][:100]
-    temp_trnimage_list = trnimage_list[perm][:100]
+# If is is a model we load it
+try:
+    saver.restore(sess, trained_session_location)
+    print('Existing session found, loaded session')
 
-    sess.run(train_step, feed_dict={x: temp_trnimage_list, y_: temp_trnclass_list})
-    tst_result = ('[Test database] Accuracy: %5.2f%%' % (100*sess.run(accuracy, feed_dict={x: tstimage_list, y_: tstclass_list})))
-    validate_result = ('[Validation database] Accuracy: %5.2f%%' % (100*sess.run(accuracy, feed_dict={x: validateimage_list, y_: validateclass_list})))
+# If there isn't we train our data and save it
+except:
+    # Train our data
+    for i in range(GLOBAL_STEPS):
+        # Shuffle data
+        perm = np.arange(index_)
+        np.random.shuffle(perm)
 
-    print(tst_result + '\t' + validate_result)
+        temp_trnclass_list = trnclass_list[perm][:100]
+        temp_trnimage_list = trnimage_list[perm][:100]
+
+        sess.run(train_step, feed_dict={x: temp_trnimage_list, y_: temp_trnclass_list})
+        tst_result = ('[Test database] Accuracy: %5.2f%%' % (100*sess.run(accuracy, feed_dict={x: tstimage_list, y_: tstclass_list})))
+        validate_result = ('[Validation database] Accuracy: %5.2f%%' % (100*sess.run(accuracy, feed_dict={x: validateimage_list, y_: validateclass_list})))
+
+        print(tst_result + '\t' + validate_result)
+
+    # Saves our session 
+    saver.save(sess, trained_session_location, global_step=GLOBAL_STEPS)
 
 # Debug
 display_classification = True
-
 if display_classification:
     # Grab random piece of data from database
     cur_index = random.randint(0, index__)
@@ -124,3 +144,4 @@ if display_classification:
     plt.title(plt_text)
     plt.show()
 
+sess.close()

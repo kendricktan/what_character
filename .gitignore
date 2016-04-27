@@ -6,6 +6,8 @@ __pycache__/
 
 database/
 .database/
+session/
+.session/
 
 # C extensions
 *.so
