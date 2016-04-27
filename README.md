@@ -1,6 +1,8 @@
 # what_character
 Neural networks to recognize hand written english characters
 
+![prediction](http://i.imgur.com/ur1nBhV.png)
+
 # Dependencies
 
 ## Tensorflow
