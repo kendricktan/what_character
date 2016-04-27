@@ -1,9 +1,10 @@
 import os
-import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
-from tensorflow.models.rnn import rnn, rnn_cell
+
+import random
+from random import randint
 from random import shuffle
 
 # Where our handwritten digits are located at
@@ -86,6 +87,7 @@ accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 sess = tf.Session()
 sess.run(init)
 
+# Train our data
 for i in range(1000):
     # Shuffle data
     perm = np.arange(index_)
@@ -98,6 +100,27 @@ for i in range(1000):
     tst_result = ('[Test database] Accuracy: %5.2f%%' % (100*sess.run(accuracy, feed_dict={x: tstimage_list, y_: tstclass_list})))
     validate_result = ('[Validation database] Accuracy: %5.2f%%' % (100*sess.run(accuracy, feed_dict={x: validateimage_list, y_: validateclass_list})))
 
-
     print(tst_result + '\t' + validate_result)
+
+# Debug
+display_classification = True
+
+if display_classification:
+    # Grab random piece of data from database
+    cur_index = random.randint(0, index__)
+    cur_image = validateimage_list[cur_index]
+    cur_character = validateclass_list[cur_index]
+    reconstructed_image = np.reshape(cur_image, (16, 8))
+
+    # Our predictions
+    feed_dict = {x: [cur_image]}
+    predicted_classification = sess.run(y, feed_dict)
+
+    plt_text = ('predicted: ' + chr(np.argmax(predicted_classification)+97))
+    plt_text += (' | actual: ' + chr(np.argmax(cur_character)+97))
+
+    # Displays image
+    plt.imshow(reconstructed_image, cmap='Greys')
+    plt.title(plt_text)
+    plt.show()
 
