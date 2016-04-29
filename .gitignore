@@ -8,6 +8,8 @@ database/
 .database/
 session/
 .session/
+.graphs/
+graphs/
 
 # C extensions
 *.so

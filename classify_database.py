@@ -17,6 +17,11 @@ if not os.path.exists('session'):
     print('Created session folder')
     print('-----------------------')
 
+if not os.path.exists('graphs'):
+    os.makedirs('graphs')
+    print('Created graphs folder')
+    print('-----------------------')
+
 # Our classifier
 print('Reading database...')
 
@@ -122,6 +127,9 @@ except:
 
     # Saves our session 
     saver.save(sess, trained_session_location, global_step=GLOBAL_STEPS)
+
+# Saves visual graph
+tf.train.SummaryWriter('./graphs', sess.graph)
 
 # Debug
 display_classification = True
